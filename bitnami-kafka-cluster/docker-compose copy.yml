@@ -1,0 +1,77 @@
+version: '3'
+
+services:
+  zookeeper:
+    image: docker.io/bitnami/zookeeper:3.8
+    ports:
+      - '2181'
+    environment:
+      - ALLOW_ANONYMOUS_LOGIN=yes
+    volumes:
+      - ./zookeeper_data:/bitnami/zookeeper
+    networks:
+      - kafka-cluster2
+
+  kafka-0:
+    image: docker.io/bitnami/kafka:3.1
+    ports:
+      - '9095:9095'
+    environment:
+      KAFKA_CFG_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_CFG_BROKER_ID: '0'
+      # 'yes' => PLAINTEXT 수신기 활성화
+      ALLOW_PLAINTEXT_LISTENER: 'yes'
+      # 수신기 보안 설정, 키:값
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: 'CLIENT:PLAINTEXT,EXTERNAL:PLAINTEXT'
+      # Kafka가 수신할 호스트/IP 및 포트입니다, 기본 0.0.0.0
+      KAFKA_CFG_LISTENERS: 'CLIENT://:9092,EXTERNAL://:9095'
+      # 리스너 목록으로 클라이언트에게 다시 전달되는 메타데이터
+      KAFKA_CFG_ADVERTISED_LISTENERS: 'CLIENT://kafka-0:9092,EXTERNAL://${host_ip}:9095'
+      # 내부통신에 사용할 리스너 정의, 사용된 호스트/IP는 브로커 시스템에서 다른 사람이 액세스할 수 있어야 합니다.
+      KAFKA_CFG_INTER_BROKER_LISTENER_NAME: 'CLIENT'
+    volumes:
+      - ./kafka_0_data:/bitnami/kafka
+    depends_on:
+      - zookeeper
+    networks:
+      - kafka-cluster2
+
+  kafka-1:
+    image: docker.io/bitnami/kafka:3.1
+    ports:
+      - '9096:9096'
+    environment:
+      KAFKA_CFG_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_CFG_BROKER_ID: '1'
+      ALLOW_PLAINTEXT_LISTENER: 'yes'
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: 'CLIENT:PLAINTEXT,EXTERNAL:PLAINTEXT'
+      KAFKA_CFG_LISTENERS: 'CLIENT://:9092,EXTERNAL://:9096'
+      KAFKA_CFG_ADVERTISED_LISTENERS: 'CLIENT://kafka-1:9092,EXTERNAL://${host_ip}:9096'
+      KAFKA_CFG_INTER_BROKER_LISTENER_NAME: 'CLIENT'
+    volumes:
+      - ./kafka_1_data:/bitnami/kafka
+    depends_on:
+      - zookeeper
+    networks:
+      - kafka-cluster2
+
+  kafdrop:
+    image: obsidiandynamics/kafdrop
+    restart: 'no'
+    ports:
+      # 포트 변경 불가
+      - '29000:9000'
+    environment:
+      # 연결할 브로커 목록, 도커의 경우 내부 통신용 포트를 사용
+      KAFKA_BROKERCONNECT: 'kafka-0:9092,kafka-1:9092'
+      JVM_OPTS: '-Xms16M -Xmx48M -Xss180K -XX:-TieredCompilation -XX:+UseStringDeduplication -noverify'
+    depends_on:
+      - zookeeper
+      - kafka-0
+      - kafka-1
+    networks:
+      - kafka-cluster2
+
+networks:
+  kafka-cluster2:
+    driver: bridge
