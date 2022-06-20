@@ -6,7 +6,7 @@ function run() {
 }
 dirname=$(pwd)
 kafka=$dirname/kafka-cluster
-grafana=$dirname/grafana-monitoring-2
+grafana=$dirname/grafana-monitoring
 
 # 카프카 실행
 cd $kafka
