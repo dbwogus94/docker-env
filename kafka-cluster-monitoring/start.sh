@@ -5,8 +5,8 @@ function run() {
     docker-compose up -d
 }
 dirname=$(pwd)
-kafka=$dirname/kafka-cluster-monitoring/kafka-cluster
-grafana=$dirname/kafka-cluster-monitoring/grafana-monitoring-2
+kafka=$dirname/kafka-cluster
+grafana=$dirname/grafana-monitoring-2
 
 # 카프카 실행
 cd $kafka
