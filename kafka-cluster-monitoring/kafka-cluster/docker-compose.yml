@@ -2,12 +2,24 @@
 # 버전 비교: https://docs.confluent.io/platform/current/installation/versions-interoperability.html#
 
 version: '3.5'
+
+# /var/lib/docker/volumes에 생성됨
+volumes:
+  zk1_data: {}
+  zk2_data: {}
+  zk3_data: {}
+  zk1_logs: {}
+  zk2_logs: {}
+  zk3_logs: {}
+  kafka-1_data: {}
+  kafka-2_data: {}
+
 services:
   zk1:
     image: confluentinc/cp-zookeeper:5.4.2
-    restart: always
-    hostname: zk1
     container_name: zk1
+    hostname: zk1
+    restart: always
     ports:
       - '2181:2181'
     environment:
@@ -18,14 +30,14 @@ services:
       - ZOOKEEPER_SYNC_LIMIT=2
       - ZOOKEEPER_SERVERS=zk1:2888:3888;zk2:2888:3888;zk3:2888:3888
     volumes:
-      - ./data/zk1/zk-data:/var/lib/zookeeper/data
-      - ./data/zk1/zk-logs:/var/lib/zookeeper/log
+      - zk1_data:/var/lib/zookeeper/data
+      - zk1_logs:/var/lib/zookeeper/log
 
   zk2:
     image: confluentinc/cp-zookeeper:5.4.2
-    restart: always
-    hostname: zk2
     container_name: zk2
+    hostname: zk2
+    restart: always
     ports:
       - '2182:2182'
     environment:
@@ -36,13 +48,13 @@ services:
       - ZOOKEEPER_SYNC_LIMIT=2
       - ZOOKEEPER_SERVERS=zk1:2888:3888;zk2:2888:3888;zk3:2888:3888
     volumes:
-      - ./data/zk2/zk-data:/var/lib/zookeeper/data
-      - ./data/zk2/zk-logs:/var/lib/zookeeper/log
+      - zk2_data:/var/lib/zookeeper/data
+      - zk2_logs:/var/lib/zookeeper/log
   zk3:
     image: confluentinc/cp-zookeeper:5.4.2
-    restart: always
-    hostname: zk3
     container_name: zk3
+    hostname: zk3
+    restart: always
     ports:
       - '2183:2183'
     environment:
@@ -53,23 +65,24 @@ services:
       - ZOOKEEPER_SYNC_LIMIT=2
       - ZOOKEEPER_SERVERS=zk1:2888:3888;zk2:2888:3888;zk3:2888:3888
     volumes:
-      - ./data/zk3/zk-data:/var/lib/zookeeper/data
-      - ./data/zk3/zk-logs:/var/lib/zookeeper/log
+      - zk3_data:/var/lib/zookeeper/data
+      - zk3_logs:/var/lib/zookeeper/log
 
   kafka-1:
     image: confluentinc/cp-kafka:5.4.2
-    restart: always
-    hostname: kafka-1
     container_name: kafka-1
+    hostname: kafka-1
+    restart: always
     ports:
       - '9095:9095'
-      - '9991:9991'
+      - '9991:9999'
+      - '7071:7071'
     # https://godekdls.github.io/Apache%20Kafka/broker-configuration/#mininsyncreplicas
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zk1:2181,zk2:2182,zk3:2183
       KAFKA_LISTENERS: INTERNAL://kafka-1:9092,EXTERNAL://:9095
-      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka-1:9092,EXTERNAL://${host_ip}:9095
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka-1:9092,EXTERNAL://${HOST_IP}:9095
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
       # auto.create.topics.enable 켜져 있으면 존재하지 않는 토픽에 메시지가 도착했을 때 자동으로 토픽이 생성된다.
@@ -81,49 +94,73 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
       # 토픽 replication 개수 지정하는 설정, default: 3
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 2
-      KAFKA_JMX_PORT: 9991
+      KAFKA_JMX_PORT: 9999
+      # jmx 정보를 수집할 에이전트 설정,
+      KAFKA_OPTS: -javaagent:/usr/app/jmx_prometheus_javaagent_java6-0.17.0.jar=7071:/usr/app/prom-jmx-agent-config.yml
     volumes:
-      - ./data/kafka-1/kafka-data:/var/lib/kafka/data
+      - kafka-1_data:/var/lib/kafka/data
+      - ./jmx-exporter:/usr/app
+
   kafka-2:
     image: confluentinc/cp-kafka:5.4.2
-    restart: always
-    hostname: kafka-2
     container_name: kafka-2
+    hostname: kafka-2
+    restart: always
     ports:
       - '9096:9096'
-      - '9992:9992'
+      - '9992:9999'
+      - '7072:7071'
     environment:
       KAFKA_BROKER_ID: 2
       KAFKA_ZOOKEEPER_CONNECT: zk1:2181,zk2:2182,zk3:2183
       KAFKA_LISTENERS: INTERNAL://kafka-2:9092,EXTERNAL://:9096
-      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka-2:9092,EXTERNAL://${host_ip}:9096
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka-2:9092,EXTERNAL://${HOST_IP}:9096
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 2
-      KAFKA_JMX_PORT: 9992
+      KAFKA_JMX_PORT: 9999
+      KAFKA_OPTS: -javaagent:/usr/app/jmx_prometheus_javaagent_java6-0.17.0.jar=7071:/usr/app/prom-jmx-agent-config.yml
     volumes:
-      - ./data/kafka-2/kafka-data:/var/lib/kafka/data
+      - kafka-2_data:/var/lib/kafka/data
+      - ./jmx-exporter:/usr/app
 
   kafka-ui:
     image: provectuslabs/kafka-ui
     container_name: kafka-ui
+    hostname: kafka-ui
+    restart: always
     ports:
       - '29000:8080'
-    restart: always
     # 참고: https://yooloo.tistory.com/98
     environment:
       - KAFKA_CLUSTERS_0_NAME=local
       - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka-1:9092,kafka-2:9092
       - KAFKA_CLUSTERS_0_ZOOKEEPER=zk1:2181,zk2:2182,zk3:2183
+    depends_on:
+      - kafka-1
+      - kafka-2
+
+  kafka_manager:
+    image: hlebalbau/kafka-manager:stable
+    container_name: kafka_manager
+    ports:
+      - '29001:9000'
+    environment:
+      ZK_HOSTS: 'zk1:2181,zk2:2182,zk3:2183'
+      APPLICATION_SECRET: 'random-secret'
+    depends_on:
+      - kafka-1
+      - kafka-2
+    command: -Dpidfile.path=/dev/null
 
   # kafdrop:
   #   image: obsidiandynamics/kafdrop
   #   restart: "no"
   #   ports:
   #     # 포트 변경 불가
-  #     - "29000:9000"
+  #     - "29001:9000"
   #   environment:
   #     # 연결할 브로커 목록, 도커의 경우 내부 통신용 포트를 사용
   #     KAFKA_BROKERCONNECT: "kafka-1:9092,kafka-2:9092"
@@ -131,13 +168,3 @@ services:
   #   depends_on:
   #     - kafka-1
   #     - kafka-2
-
-  # kafka_manager:
-  #   image: hlebalbau/kafka-manager:stable
-  #   container_name: cmak
-  #   ports:
-  #     - "29000:9000"
-  #   environment:
-  #     ZK_HOSTS: "zk1:2181,zk2:2182,zk3:2183"
-  #     APPLICATION_SECRET: "random-secret"
-  #   command: -Dpidfile.path=/dev/null
